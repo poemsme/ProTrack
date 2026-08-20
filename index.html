@@ -1,935 +1,524 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0F5E56">
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Tracker Proyek KNMP</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    :root {
-      --bg: #F5F7F7;
-      --card: #FFFFFF;
-      --text: #132B27;
-      --muted: #607572;
-      --accent: #0F5E56;
-      --accent-dark: #0B4A44;
-      --border: #E1E8E6;
-      --danger: #B3432D;
-      --radius: 14px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    #toast {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 60;
-      text-align: center;
-      padding: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      background: var(--accent);
-      color: #fff;
-      transform: translateY(-100%);
-      transition: transform .25s ease;
-    }
-
-    #toast.show {
-      transform: translateY(0);
-    }
-
-    header.topbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--accent);
-      color: #fff;
-      padding: 14px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    header.topbar h1 {
-      font-size: 17px;
-      margin: 0;
-      font-weight: 700;
-      flex: 1;
-    }
-
-    .hamburger {
-      background: rgba(255, 255, 255, .15);
-      border: none;
-      color: #fff;
-      font-size: 18px;
-      padding: 7px 12px;
-      border-radius: 8px;
-      line-height: 1;
-    }
-
-    main {
-      padding: 14px 14px 34px;
-      max-width: 520px;
-      margin: 0 auto;
-    }
-
-    .kpi-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .kpi-card {
-      flex: 1;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px 12px;
-    }
-
-    .kpi-value {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--accent-dark);
-    }
-
-    .kpi-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .section-title {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: var(--muted);
-      margin: 18px 0 8px;
-    }
-
-    .funnel-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      font-size: 13px;
-    }
-
-    .funnel-label {
-      width: 120px;
-      flex-shrink: 0;
-      color: var(--text);
-    }
-
-    .funnel-bar-bg {
-      flex: 1;
-      background: var(--border);
-      border-radius: 6px;
-      height: 10px;
-      overflow: hidden;
-    }
-
-    .funnel-bar {
-      height: 100%;
-      border-radius: 6px;
-    }
-
-    .funnel-count {
-      width: 20px;
-      text-align: right;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      margin-bottom: 10px;
-    }
-
-    .card:active {
-      background: #F0F4F3;
-    }
-
-    .card-title {
-      font-weight: 700;
-      font-size: 15px;
-      margin-bottom: 4px;
-    }
-
-    .card-sub {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      color: #fff;
-      padding: 3px 9px;
-      border-radius: 99px;
-      margin-top: 6px;
-    }
-
-    .card-value {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--accent-dark);
-      margin-top: 6px;
-    }
-
-    .filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    select,
-    input[type=text],
-    input[type=number],
-    input[type=date],
-    input[type=password],
-    textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-size: 14px;
-      background: #fff;
-      color: var(--text);
-      font-family: inherit;
-    }
-
-    label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-      display: block;
-      margin: 12px 0 5px;
-    }
-
-    .btn {
-      display: inline-block;
-      width: 100%;
-      text-align: center;
-      padding: 13px;
-      border-radius: 12px;
-      border: none;
-      font-size: 15px;
-      font-weight: 700;
-      background: var(--accent);
-      color: #fff;
-      margin-top: 16px;
-    }
-
-    .btn.secondary {
-      background: #fff;
-      color: var(--accent-dark);
-      border: 1px solid var(--accent);
-      margin-top: 10px;
-    }
-
-    .btn.danger {
-      background: #fff;
-      color: var(--danger);
-      border: 1px solid var(--danger);
-    }
-
-    .btn:active {
-      opacity: .85;
-    }
-
-    .back-link {
-      color: var(--accent-dark);
-      font-weight: 700;
-      font-size: 14px;
-      margin-bottom: 10px;
-      display: inline-block;
-    }
-
-    .stepper-select {
-      margin-bottom: 14px;
-    }
-
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 9px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-      gap: 10px;
-    }
-
-    .info-row:last-child {
-      border-bottom: none;
-    }
-
-    .info-row .k {
-      color: var(--muted);
-      flex-shrink: 0;
-    }
-
-    .info-row .v {
-      font-weight: 600;
-      text-align: right;
-    }
-
-    .doc-row {
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .doc-row:last-child {
-      border-bottom: none;
-    }
-
-    .doc-row-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .doc-name {
-      font-size: 13.5px;
-    }
-
-    .doc-status {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 9px;
-      border-radius: 99px;
-      border: none;
-      flex-shrink: 0;
-    }
-
-    .status-belum {
-      background: #F1E4DE;
-      color: var(--danger);
-    }
-
-    .status-upload {
-      background: #FCEFC8;
-      color: #8A6A0E;
-    }
-
-    .status-terverifikasi {
-      background: #DCEFE6;
-      color: var(--accent-dark);
-    }
-
-    .doc-actions,
-    .file-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .file-label {
-      font-size: 11px;
-      color: var(--accent-dark);
-      flex-shrink: 0;
-      font-weight: 700;
-      border: 1px solid var(--accent);
-      padding: 4px 9px;
-      border-radius: 8px;
-      background: none;
-      text-decoration: none;
-      display: inline-block;
-    }
-
-    .file-label input {
-      display: none;
-    }
-
-    .mode-switcher {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .mode-switcher button {
-      flex: 1;
-      padding: 9px;
-      border-radius: 9px;
-      border: 1px solid var(--border);
-      background: #fff;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-    }
-
-    .mode-switcher button.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-
-    .list-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 13px 4px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .list-item .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .list-item-name {
-      flex: 1;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .list-item-chevron {
-      color: var(--muted);
-    }
-
-    .detailed-row {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 12px;
-      margin-bottom: 8px;
-    }
-
-    .detailed-row-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      gap: 8px;
-    }
-
-    .detailed-row-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 10px;
-      font-size: 12px;
-    }
-
-    .detailed-row-grid .k {
-      color: var(--muted);
-      display: block;
-    }
-
-    .detailed-row-grid .v {
-      font-weight: 600;
-    }
-
-    .sidebar-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .4);
-      z-index: 30;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .2s;
-    }
-
-    .sidebar-overlay.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: 78%;
-      max-width: 300px;
-      background: #fff;
-      z-index: 31;
-      transform: translateX(-100%);
-      transition: transform .25s ease;
-      display: flex;
-      flex-direction: column;
-      padding: 18px 0;
-      box-shadow: 2px 0 24px rgba(0, 0, 0, .18);
-      overflow-y: auto;
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-    }
-
-    .sidebar-header {
-      padding: 0 18px 16px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 8px;
-    }
-
-    .sidebar-user {
-      font-weight: 800;
-      font-size: 15px;
-      color: var(--accent-dark);
-    }
-
-    .sidebar-role {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
-
-    .sidebar button {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: none;
-      border: none;
-      padding: 13px 18px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .sidebar button:active {
-      background: #F0F4F3;
-    }
-
-    .sidebar-note {
-      font-size: 11.5px;
-      color: var(--muted);
-      padding: 8px 18px;
-      line-height: 1.4;
-    }
-
-    .sidebar-divider {
-      height: 1px;
-      background: var(--border);
-      margin: 8px 0;
-    }
-
-    .user-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .user-pick {
-      padding: 16px 8px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #fff;
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--accent-dark);
-    }
-
-    .user-pick:active {
-      background: #EAF2F0;
-    }
-
-    .selected-user-chip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #EAF2F0;
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-weight: 700;
-      color: var(--accent-dark);
-      margin-bottom: 4px;
-    }
-
-    .chip-clear {
-      background: none;
-      border: none;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
-      width: auto;
-      padding: 0;
-    }
-
-    .login-wrap {
-      padding-top: 60px;
-      text-align: center;
-    }
-
-    .login-wrap h1 {
-      font-size: 20px;
-      color: var(--accent-dark);
-      margin-bottom: 4px;
-    }
-
-    .login-wrap p {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-
-    .empty-state {
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-      padding: 30px 0;
-    }
-
-    textarea {
-      min-height: 70px;
-      resize: vertical;
-    }
-
-    #mapContainer,
-    #pickerMap {
-      background: #E7ECEB;
-    }
-
-    .leaflet-container {
-      font-family: inherit;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0F5E56">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Tracker Proyek KNMP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#F5F7F7; --card:#FFFFFF; --text:#132B27; --muted:#607572;
+    --accent:#0F5E56; --accent-dark:#0B4A44; --border:#E1E8E6;
+    --danger:#B3432D; --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #toast{
+    position:fixed; top:0; left:0; right:0; z-index:60;
+    text-align:center; padding:10px; font-size:14px; font-weight:600;
+    background:var(--accent); color:#fff; transform:translateY(-100%);
+    transition:transform .25s ease;
+  }
+  #toast.show{ transform:translateY(0); }
+  header.topbar{
+    position:sticky; top:0; z-index:10; background:var(--accent);
+    color:#fff; padding:14px 16px; display:flex; align-items:center; gap:12px;
+  }
+  header.topbar h1{font-size:17px; margin:0; font-weight:700; flex:1;}
+  .hamburger{
+    background:rgba(255,255,255,.15); border:none; color:#fff;
+    font-size:18px; padding:7px 12px; border-radius:8px; line-height:1;
+  }
+  main{ padding:14px 14px 34px; max-width:520px; margin:0 auto; }
+  .kpi-row{ display:flex; gap:10px; margin-bottom:14px; }
+  .kpi-card{
+    flex:1; background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px 12px;
+  }
+  .kpi-value{ font-size:20px; font-weight:800; color:var(--accent-dark); }
+  .kpi-label{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .section-title{
+    font-size:13px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--muted); margin:18px 0 8px;
+  }
+  .funnel-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:13px; }
+  .funnel-label{ width:120px; flex-shrink:0; color:var(--text); }
+  .funnel-bar-bg{ flex:1; background:var(--border); border-radius:6px; height:10px; overflow:hidden; }
+  .funnel-bar{ height:100%; border-radius:6px; }
+  .funnel-count{ width:20px; text-align:right; font-weight:700; flex-shrink:0; }
+  .card{
+    background:var(--card); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px; margin-bottom:10px;
+  }
+  .card:active{ background:#F0F4F3; }
+  .card-title{ font-weight:700; font-size:15px; margin-bottom:4px; }
+  .card-sub{ font-size:13px; color:var(--muted); }
+  .badge{
+    display:inline-block; font-size:11px; font-weight:700; color:#fff;
+    padding:3px 9px; border-radius:99px; margin-top:6px;
+  }
+  .card-value{ font-size:13px; font-weight:700; color:var(--accent-dark); margin-top:6px; }
+  .filters{ display:flex; gap:8px; margin-bottom:10px; }
+  select, input[type=text], input[type=number], input[type=date],
+  input[type=password], textarea{
+    width:100%; padding:10px 12px; border:1px solid var(--border);
+    border-radius:10px; font-size:14px; background:#fff; color:var(--text);
+    font-family:inherit;
+  }
+  label{ font-size:12px; font-weight:700; color:var(--muted); display:block; margin:12px 0 5px; }
+  .btn{
+    display:inline-block; width:100%; text-align:center; padding:13px;
+    border-radius:12px; border:none; font-size:15px; font-weight:700;
+    background:var(--accent); color:#fff; margin-top:16px;
+  }
+  .btn.secondary{ background:#fff; color:var(--accent-dark); border:1px solid var(--accent); margin-top:10px; }
+  .btn.danger{ background:#fff; color:var(--danger); border:1px solid var(--danger); }
+  .btn:active{ opacity:.85; }
+  .back-link{ color:var(--accent-dark); font-weight:700; font-size:14px; margin-bottom:10px; display:inline-block; }
+  .stepper-select{ margin-bottom:14px; }
+  .info-row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:14px; gap:10px; }
+  .info-row:last-child{ border-bottom:none; }
+  .info-row .k{ color:var(--muted); flex-shrink:0; }
+  .info-row .v{ font-weight:600; text-align:right; }
+
+  .doc-row{ padding:10px 0; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:6px; }
+  .doc-row:last-child{ border-bottom:none; }
+  .doc-row-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .doc-name{ font-size:13.5px; }
+  .doc-status{
+    font-size:11px; font-weight:700; padding:4px 9px; border-radius:99px;
+    border:none; flex-shrink:0;
+  }
+  .status-belum{ background:#F1E4DE; color:var(--danger); }
+  .status-upload{ background:#FCEFC8; color:#8A6A0E; }
+  .status-terverifikasi{ background:#DCEFE6; color:var(--accent-dark); }
+  .doc-actions, .file-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .file-label{
+    font-size:11px; color:var(--accent-dark); flex-shrink:0; font-weight:700;
+    border:1px solid var(--accent); padding:4px 9px; border-radius:8px;
+    background:none; text-decoration:none; display:inline-block;
+  }
+  .file-label input{ display:none; }
+
+  .mode-switcher{ display:flex; gap:6px; margin-bottom:12px; }
+  .mode-switcher button{ flex:1; padding:9px; border-radius:9px; border:1px solid var(--border); background:#fff; font-size:12px; font-weight:700; color:var(--muted); }
+  .mode-switcher button.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .list-item{ display:flex; align-items:center; gap:10px; padding:13px 4px; border-bottom:1px solid var(--border); }
+  .list-item .dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .list-item-name{ flex:1; font-size:14px; font-weight:600; }
+  .list-item-chevron{ color:var(--muted); }
+
+  .detailed-row{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px; }
+  .detailed-row-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
+  .detailed-row-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; font-size:12px; }
+  .detailed-row-grid .k{ color:var(--muted); display:block; }
+  .detailed-row-grid .v{ font-weight:600; }
+
+  .sidebar-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:30; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .sidebar-overlay.open{ opacity:1; pointer-events:auto; }
+  .sidebar{
+    position:fixed; top:0; left:0; bottom:0; width:78%; max-width:300px;
+    background:#fff; z-index:31; transform:translateX(-100%);
+    transition:transform .25s ease; display:flex; flex-direction:column;
+    padding:18px 0; box-shadow:2px 0 24px rgba(0,0,0,.18); overflow-y:auto;
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .sidebar-header{ padding:0 18px 16px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .sidebar-user{ font-weight:800; font-size:15px; color:var(--accent-dark); }
+  .sidebar-role{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .sidebar button{ display:block; width:100%; text-align:left; background:none; border:none; padding:13px 18px; font-size:14px; font-weight:600; color:var(--text); }
+  .sidebar button:active{ background:#F0F4F3; }
+  .sidebar-note{ font-size:11.5px; color:var(--muted); padding:8px 18px; line-height:1.4; }
+  .sidebar-divider{ height:1px; background:var(--border); margin:8px 0; }
+
+  .user-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .user-pick{ padding:16px 8px; border-radius:12px; border:1px solid var(--border); background:#fff; font-weight:700; font-size:14px; color:var(--accent-dark); }
+  .user-pick:active{ background:#EAF2F0; }
+  .selected-user-chip{ display:flex; justify-content:space-between; align-items:center; background:#EAF2F0; border-radius:10px; padding:10px 12px; font-weight:700; color:var(--accent-dark); margin-bottom:4px; }
+  .chip-clear{ background:none; border:none; color:var(--accent); font-size:12px; font-weight:700; width:auto; padding:0; }
+
+  .login-wrap{ padding-top:60px; text-align:center; }
+  .login-wrap h1{ font-size:20px; color:var(--accent-dark); margin-bottom:4px; }
+  .login-wrap p{ font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .empty-state{ text-align:center; color:var(--muted); font-size:13px; padding:30px 0; }
+  textarea{ min-height:70px; resize:vertical; }
+  #mapContainer, #pickerMap{ background:#E7ECEB; }
+  .leaflet-container{ font-family:inherit; }
+</style>
 </head>
-
 <body>
-  <div id="toast"></div>
-  <div id="app"></div>
+<div id="toast"></div>
+<div id="fatalError"></div>
+<div id="app"></div>
 
-  <script>
-    /* ================= CONFIG ================= */
-    const SUPABASE_URL = 'sb_publishable_1mr6MVJaTwbqicrzFJPM5A_eljeisVu';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sb3BmdG9yYnBsY3JzZHhwdWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMTE2NTEsImV4cCI6MjEwMjc4NzY1MX0.gEY4GzHyX_bifqkG2JXN29duE0N-jwztlDTVRmhdQ2w';
-    const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const EMAIL_DOMAIN = 'internal.knmp';
+<script>
+/* ================= ERROR SURFACING (harus paling atas) ================= */
+function showFatalError(err){
+  try{ console.error(err); }catch(e){}
+  const el = document.getElementById('fatalError');
+  if(!el) return;
+  const msg = (err && err.message) ? err.message : String(err);
+  el.innerHTML = `
+    <div style="max-width:520px;margin:32px auto;padding:18px;background:#FBEAE6;
+      border:1px solid #E3A99A;border-radius:14px;color:#7A2E1E;
+      font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
+      <div style="font-weight:800;margin-bottom:8px;font-size:15px;">Aplikasi gagal memuat</div>
+      <div style="font-size:13px;line-height:1.5;margin-bottom:12px;word-break:break-word;">${String(msg).replace(/</g,'&lt;')}</div>
+      <div style="font-size:12px;color:#8A4A3B;line-height:1.5;">
+        Coba cek lagi di <code>index.html</code>:<br>
+        1) SUPABASE_URL &amp; SUPABASE_ANON_KEY sudah diganti dari teks placeholder<br>
+        2) SUPABASE_URL diawali <code>https://</code> dan tidak ada tanda kutip nyangkut<br>
+        3) anon key yang dipakai (bukan service_role key)<br>
+        4) <code>schema.sql</code> sudah dijalankan di Supabase SQL Editor
+      </div>
+    </div>`;
+}
+window.addEventListener('error', (e)=> showFatalError(e.error || e.message || 'Unknown error'));
+window.addEventListener('unhandledrejection', (e)=> showFatalError(e.reason));
 
-    /* ================= REFERENCE DATA ================= */
-    const USERS = [
-      { username: 'bosherman', display: 'Bos Herman' },
-      { username: 'bosibar', display: 'Bos Ibar' },
-      { username: 'hani', display: 'Hani' },
-      { username: 'alwan', display: 'Alwan' },
-      { username: 'hikam', display: 'Hikam' },
-      { username: 'tamu1', display: 'Tamu 1' },
-      { username: 'tamu2', display: 'Tamu 2' },
-    ];
-    const STAGES = [
-      { key: 'info_makelar', label: 'Info & Makelar', color: '#94A3AC' },
-      { key: 'permohonan', label: 'Permohonan', color: '#7C9CAE' },
-      { key: 'undangan_negosiasi', label: 'Undangan & Negosiasi', color: '#5F93A6' },
-      { key: 'sptjb', label: 'SPTJB', color: '#4A8A95' },
-      { key: 'jampel', label: 'Jampel', color: '#357F7E' },
-      { key: 'mou_kso', label: 'MoU KSO', color: '#227566' },
-      { key: 'kontrak', label: 'Kontrak', color: '#146B4F' },
-      { key: 'penagihan_fee', label: 'Penagihan Fee', color: '#0C5C3C' },
-    ];
-    const DOC_TYPES = [
-      { key: 'cp', label: 'CP (Company Profile)' },
-      { key: 'bg', label: 'BG (Bank Garansi)' },
-      { key: 'surduk_bank', label: 'Surduk Bank (min. 25%)' },
-      { key: 'surduk_alat', label: 'Surduk Alat Berat' },
-      { key: 'boq', label: 'BOQ' },
-      { key: 'sertifikat_k3', label: 'Sertifikat K3' },
-      { key: 'sertifikat_manajerial', label: 'Sertifikat Manajerial' },
-      { key: 'skp', label: 'SKP' },
-      { key: 'iso', label: 'ISO (Opsional)' },
-      { key: 'surat_penawaran', label: 'Surat Permohonan & Penawaran' },
-    ];
-    const stageInfo = key => STAGES.find(s => s.key === key) || STAGES[0];
+/* ================= CONFIG ================= */
+const SUPABASE_URL = 'https://olopftorbplcrsdxpufx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sb3BmdG9yYnBsY3JzZHhwdWZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMTE2NTEsImV4cCI6MjEwMjc4NzY1MX0.gEY4GzHyX_bifqkG2JXN29duE0N-jwztlDTVRmhdQ2w';
+const EMAIL_DOMAIN = 'internal.knmp';
+let supa = null;
+let CONFIG_ERROR = null;
+try{
+  if(!SUPABASE_URL || SUPABASE_URL.indexOf('GANTI_DENGAN') !== -1){
+    throw new Error('SUPABASE_URL belum diganti dari nilai default. Buka index.html, cari const SUPABASE_URL di bagian atas <script>, ganti dengan Project URL dari Supabase (Project Settings > API).');
+  }
+  if(!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.indexOf('GANTI_DENGAN') !== -1){
+    throw new Error('SUPABASE_ANON_KEY belum diganti dari nilai default. Buka index.html, cari const SUPABASE_ANON_KEY, ganti dengan anon public key dari Supabase (Project Settings > API).');
+  }
+  if(typeof window.supabase === 'undefined'){
+    throw new Error('Library Supabase (dari CDN) gagal dimuat. Cek koneksi internet, atau kemungkinan CDN diblokir jaringan/browser.');
+  }
+  supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(err){
+  CONFIG_ERROR = err;
+}
 
-    /* ================= STATE ================= */
-    let state = {
-      session: null,
-      profile: null,
-      view: 'dashboard',      // dashboard | list | detail | add | timeline
-      dashboardMode: 'ringkasan', // ringkasan | map
-      sidebarOpen: false,
-      loginSelected: null,
-      viewMode: getViewMode(), // card | list | detailed
-      projects: [],
-      currentDetail: null,
-      currentDocs: [],
-      timeline: [],
-      filterStage: '',
-      search: '',
-      installAvailable: false,
-    };
-    let leafletMap = null;
-    let pickerMap = null;
-    let pickerMarker = null;
+/* ================= REFERENCE DATA ================= */
+const USERS = [
+  {username:'bosherman', display:'Bos Herman'},
+  {username:'bosibar',   display:'Bos Ibar'},
+  {username:'hani',      display:'Hani'},
+  {username:'alwan',     display:'Alwan'},
+  {username:'hikam',     display:'Hikam'},
+  {username:'tamu1',     display:'Tamu 1'},
+  {username:'tamu2',     display:'Tamu 2'},
+];
+const STAGES = [
+  {key:'info_makelar',       label:'Info & Makelar',       color:'#94A3AC'},
+  {key:'permohonan',         label:'Permohonan',           color:'#7C9CAE'},
+  {key:'undangan_negosiasi', label:'Undangan & Negosiasi', color:'#5F93A6'},
+  {key:'sptjb',              label:'SPTJB',                color:'#4A8A95'},
+  {key:'jampel',             label:'Jampel',               color:'#357F7E'},
+  {key:'mou_kso',            label:'MoU KSO',              color:'#227566'},
+  {key:'kontrak',            label:'Kontrak',              color:'#146B4F'},
+  {key:'penagihan_fee',      label:'Penagihan Fee',        color:'#0C5C3C'},
+];
+const DOC_TYPES = [
+  {key:'cp', label:'CP (Company Profile)'},
+  {key:'bg', label:'BG (Bank Garansi)'},
+  {key:'surduk_bank', label:'Surduk Bank (min. 25%)'},
+  {key:'surduk_alat', label:'Surduk Alat Berat'},
+  {key:'boq', label:'BOQ'},
+  {key:'sertifikat_k3', label:'Sertifikat K3'},
+  {key:'sertifikat_manajerial', label:'Sertifikat Manajerial'},
+  {key:'skp', label:'SKP'},
+  {key:'iso', label:'ISO (Opsional)'},
+  {key:'surat_penawaran', label:'Surat Permohonan & Penawaran'},
+];
+const stageInfo = key => STAGES.find(s=>s.key===key) || STAGES[0];
 
-    /* ================= HELPERS ================= */
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
-    function formatRupiah(n) {
-      if (n === null || n === undefined || n === '') return '-';
-      return 'Rp ' + Number(n).toLocaleString('id-ID');
-    }
-    function formatDate(d) {
-      if (!d) return '-';
-      return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-    }
-    function formatDateTime(d) {
-      if (!d) return '-';
-      return new Date(d).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    }
-    function toast(msg) {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 1800);
-    }
-    function isAdmin() { return state.profile?.role === 'admin'; }
-    function isIOSDevice() { return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
-    function getViewMode() {
-      try { return localStorage.getItem('knmp_view_mode') || 'card'; } catch (e) { return 'card'; }
-    }
-    function setViewMode(mode) {
-      state.viewMode = mode;
-      try { localStorage.setItem('knmp_view_mode', mode); } catch (e) { }
-      render();
-    }
-    function filenameFromUrl(url) {
-      try { return decodeURIComponent(url.split('/').pop()); } catch (e) { return 'file'; }
-    }
-    async function downloadFile(url) {
-      try {
-        toast('Menyiapkan unduhan...');
-        const res = await fetch(url);
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl; a.download = filenameFromUrl(url);
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(blobUrl);
-      } catch (e) { toast('Gagal mengunduh file'); }
-    }
-    function goTo(view, id = null) {
-      state.view = view;
-      state.currentId = id;
-      state.sidebarOpen = false;
-      if (view === 'detail') state.currentDetail = null;
-      if (view === 'dashboard') state.dashboardMode = 'ringkasan';
-      render();
-      window.scrollTo(0, 0);
-      if (view === 'detail' && id) loadDetail(id);
-      if (view === 'timeline') loadTimeline();
-    }
-    function openSidebar() { state.sidebarOpen = true; render(); }
-    function closeSidebar() { state.sidebarOpen = false; render(); }
+/* ================= STATE ================= */
+let state = {
+  session: null,
+  profile: null,
+  view: 'dashboard',      // dashboard | list | detail | add | timeline
+  dashboardMode: 'ringkasan', // ringkasan | map
+  sidebarOpen: false,
+  loginSelected: null,
+  viewMode: getViewMode(), // card | list | detailed
+  projects: [],
+  currentDetail: null,
+  currentDocs: [],
+  timeline: [],
+  filterStage: '',
+  search: '',
+  installAvailable: false,
+};
+let leafletMap = null;
+let pickerMap = null;
+let pickerMarker = null;
 
-    /* ================= AUTH ================= */
-    async function initAuth() {
-      const { data: { session } } = await supa.auth.getSession();
-      state.session = session;
-      if (session) { await loadProfile(); await loadProjects(); }
-      supa.auth.onAuthStateChange(async (_event, sess) => {
+/* ================= HELPERS ================= */
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatRupiah(n){
+  if(n===null||n===undefined||n==='') return '-';
+  return 'Rp ' + Number(n).toLocaleString('id-ID');
+}
+function formatDate(d){
+  if(!d) return '-';
+  return new Date(d).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+}
+function formatDateTime(d){
+  if(!d) return '-';
+  return new Date(d).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 1800);
+}
+function isAdmin(){ return state.profile?.role === 'admin'; }
+function isIOSDevice(){ return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream; }
+function getViewMode(){
+  try{ return localStorage.getItem('knmp_view_mode') || 'card'; }catch(e){ return 'card'; }
+}
+function setViewMode(mode){
+  state.viewMode = mode;
+  try{ localStorage.setItem('knmp_view_mode', mode); }catch(e){}
+  render();
+}
+function filenameFromUrl(url){
+  try{ return decodeURIComponent(url.split('/').pop()); }catch(e){ return 'file'; }
+}
+async function downloadFile(url){
+  try{
+    toast('Menyiapkan unduhan...');
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl; a.download = filenameFromUrl(url);
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(blobUrl);
+  }catch(e){ toast('Gagal mengunduh file'); }
+}
+function goTo(view, id=null){
+  state.view = view;
+  state.currentId = id;
+  state.sidebarOpen = false;
+  if(view==='detail') state.currentDetail = null;
+  if(view==='dashboard') state.dashboardMode = 'ringkasan';
+  render();
+  window.scrollTo(0,0);
+  if(view==='detail' && id) loadDetail(id);
+  if(view==='timeline') loadTimeline();
+}
+function openSidebar(){ state.sidebarOpen = true; render(); }
+function closeSidebar(){ state.sidebarOpen = false; render(); }
+
+/* ================= AUTH ================= */
+async function initAuth(){
+  try{
+    const {data:{session}, error} = await supa.auth.getSession();
+    if(error) throw error;
+    state.session = session;
+    if(session){ await loadProfile(); await loadProjects(); }
+    supa.auth.onAuthStateChange(async (_event, sess)=>{
+      try{
         state.session = sess;
-        if (sess) { await loadProfile(); await loadProjects(); }
+        if(sess){ await loadProfile(); await loadProjects(); }
         else { state.profile = null; state.projects = []; }
         render();
-      });
-      render();
-    }
-    function selectLoginUser(username) {
-      state.loginSelected = username;
-      render();
-    }
-    async function login(e) {
-      e.preventDefault();
-      const password = document.getElementById('loginPassword').value;
-      const email = `${state.loginSelected}@${EMAIL_DOMAIN}`;
-      const btn = document.getElementById('loginBtn');
-      btn.textContent = 'Memproses...';
-      const { error } = await supa.auth.signInWithPassword({ email, password });
-      if (error) { toast('Login gagal, cek password'); btn.textContent = 'Masuk'; return; }
-      toast('Berhasil masuk');
-    }
-    async function logout() {
-      await supa.auth.signOut();
-      state.projects = []; state.profile = null; state.loginSelected = null;
-      goTo('dashboard');
-    }
-    async function loadProfile() {
-      const uid = state.session?.user?.id;
-      if (!uid) return;
-      const { data, error } = await supa.from('profiles').select('*').eq('id', uid).single();
-      if (!error) state.profile = data;
-    }
-
-    /* ================= DATA ================= */
-    async function loadProjects() {
-      const { data, error } = await supa.from('projects').select('*').is('deleted_at', null).order('created_at', { ascending: false });
-      if (error) { toast('Gagal memuat data: ' + error.message); return; }
-      state.projects = data || [];
-      render();
-    }
-    async function loadDetail(id) {
-      const { data: proj, error: e1 } = await supa.from('projects').select('*').eq('id', id).single();
-      const { data: docs, error: e2 } = await supa.from('offer_documents').select('*').eq('project_id', id);
-      if (e1 || e2) { toast('Gagal memuat detail'); return; }
-      state.currentDetail = proj;
-      state.currentDocs = docs || [];
-      render();
-    }
-    async function loadTimeline() {
-      const { data, error } = await supa.from('activity_log')
-        .select('*, projects(nama_proyek), profiles:actor_id(display_name)')
-        .order('created_at', { ascending: false }).limit(100);
-      if (error) { toast('Gagal memuat timeline'); return; }
-      state.timeline = data || [];
-      render();
-    }
-    async function logActivity(projectId, actionType, detail) {
-      const uid = state.session?.user?.id;
-      if (!uid || !isAdmin()) return;
-      try { await supa.from('activity_log').insert({ project_id: projectId, actor_id: uid, action_type: actionType, detail }); } catch (e) { }
-    }
-    async function createProject(payload) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return null; }
-      const user = state.session?.user;
-      const { data, error } = await supa.from('projects').insert({ ...payload, created_by: user?.id }).select().single();
-      if (error) { toast('Gagal simpan: ' + error.message); return null; }
-      const docRows = DOC_TYPES.map(d => ({ project_id: data.id, jenis_dokumen: d.key, status: 'belum' }));
-      await supa.from('offer_documents').insert(docRows);
-      await logActivity(data.id, 'create_project', `Proyek baru dibuat: ${payload.nama_proyek}`);
-      await loadProjects();
-      toast('Proyek dibuat');
-      return data.id;
-    }
-    async function updateField(id, field, value) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      const { error } = await supa.from('projects').update({ [field]: value }).eq('id', id);
-      if (error) { toast('Gagal update'); return; }
-      toast('Tersimpan');
-      const idx = state.projects.findIndex(p => p.id === id);
-      if (idx > -1) state.projects[idx][field] = value;
-      if (state.currentDetail && state.currentDetail.id === id) state.currentDetail[field] = value;
-    }
-    async function updateStage(id, newStage) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      const proj = state.projects.find(x => x.id === id) || state.currentDetail;
-      const oldLabel = stageInfo(proj?.stage)?.label || '?';
-      const newLabel = stageInfo(newStage)?.label;
-      await updateField(id, 'stage', newStage);
-      await logActivity(id, 'change_stage', `Tahap diubah: ${oldLabel} \u2192 ${newLabel}`);
-      render();
-    }
-    async function toggleDocStatus(docId) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      const doc = state.currentDocs.find(d => d.id === docId);
-      if (!doc) return;
-      const order = ['belum', 'upload', 'terverifikasi'];
-      const next = order[(order.indexOf(doc.status) + 1) % order.length];
-      const { error } = await supa.from('offer_documents').update({ status: next, updated_at: new Date().toISOString() }).eq('id', docId);
-      if (error) { toast('Gagal update dokumen'); return; }
-      doc.status = next;
-      const dt = DOC_TYPES.find(d => d.key === doc.jenis_dokumen);
-      await logActivity(state.currentDetail?.id, 'update_doc_status', `Dokumen "${dt?.label || doc.jenis_dokumen}" diubah jadi ${next}`);
-      render();
-    }
-    async function uploadDocFile(event, docId) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      const file = event.target.files[0];
-      if (!file) return;
-      toast('Mengunggah file...');
-      const path = `docs/${state.currentDetail.id}/${docId}-${Date.now()}-${file.name}`;
-      const { error: upErr } = await supa.storage.from('project-files').upload(path, file, { upsert: true });
-      if (upErr) { toast('Gagal unggah: ' + upErr.message); return; }
-      const { data: urlData } = supa.storage.from('project-files').getPublicUrl(path);
-      const doc = state.currentDocs.find(d => d.id === docId);
-      await supa.from('offer_documents').update({ file_url: urlData.publicUrl, status: 'upload' }).eq('id', docId);
-      doc.file_url = urlData.publicUrl; doc.status = 'upload';
-      const dt = DOC_TYPES.find(d => d.key === doc.jenis_dokumen);
-      await logActivity(state.currentDetail.id, 'upload_file', `File diunggah untuk dokumen "${dt?.label || doc.jenis_dokumen}"`);
-      toast('File terunggah'); render();
-    }
-    async function uploadMouFile(event) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      const file = event.target.files[0];
-      if (!file) return;
-      toast('Mengunggah file...');
-      const path = `mou/${state.currentDetail.id}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supa.storage.from('project-files').upload(path, file, { upsert: true });
-      if (upErr) { toast('Gagal unggah: ' + upErr.message); return; }
-      const { data: urlData } = supa.storage.from('project-files').getPublicUrl(path);
-      await updateField(state.currentDetail.id, 'file_mou_kso_url', urlData.publicUrl);
-      state.currentDetail.file_mou_kso_url = urlData.publicUrl;
-      await logActivity(state.currentDetail.id, 'upload_file', 'File MoU KSO diunggah');
-      toast('File MoU terunggah'); render();
-    }
-    async function deleteProject(id) {
-      if (!isAdmin()) { toast('Tidak punya akses'); return; }
-      if (!confirm('Hapus proyek ini? Data akan disembunyikan (soft delete).')) return;
-      const proj = state.projects.find(p => p.id === id);
-      await supa.from('projects').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-      await logActivity(id, 'delete_project', `Proyek dihapus: ${proj?.nama_proyek || ''}`);
-      toast('Proyek dihapus');
-      await loadProjects();
-      goTo('list');
-    }
-
-    /* ================= PWA ================= */
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      window.deferredInstallPrompt = e;
-      state.installAvailable = true;
-      render();
+      }catch(err){ showFatalError(err); }
     });
-    async function installApp() {
-      const promptEvent = window.deferredInstallPrompt;
-      if (!promptEvent) return;
-      promptEvent.prompt();
-      await promptEvent.userChoice;
-      window.deferredInstallPrompt = null;
-      state.installAvailable = false;
-      render();
-    }
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { }); });
-    }
+    render();
+  }catch(err){
+    showFatalError(err);
+  }
+}
+function selectLoginUser(username){
+  state.loginSelected = username;
+  render();
+}
+async function login(e){
+  e.preventDefault();
+  const password = document.getElementById('loginPassword').value;
+  const email = `${state.loginSelected}@${EMAIL_DOMAIN}`;
+  const btn = document.getElementById('loginBtn');
+  btn.textContent = 'Memproses...';
+  const {error} = await supa.auth.signInWithPassword({email, password});
+  if(error){ toast('Login gagal, cek password'); btn.textContent='Masuk'; return; }
+  toast('Berhasil masuk');
+}
+async function logout(){
+  await supa.auth.signOut();
+  state.projects = []; state.profile = null; state.loginSelected = null;
+  goTo('dashboard');
+}
+async function loadProfile(){
+  const uid = state.session?.user?.id;
+  if(!uid) return;
+  const {data, error} = await supa.from('profiles').select('*').eq('id', uid).single();
+  if(!error) state.profile = data;
+}
 
-    /* ================= RENDER: SHELL ================= */
-    function render() {
-      const app = document.getElementById('app');
-      if (!state.session) { app.innerHTML = renderLogin(); attachFormHandlers(); return; }
-      const willShowMap = state.view === 'dashboard' && state.dashboardMode === 'map';
-      const willShowPicker = state.view === 'add' || (state.view === 'detail' && isAdmin());
-      if (leafletMap && !willShowMap) { leafletMap.remove(); leafletMap = null; }
-      if (pickerMap && !willShowPicker) { pickerMap.remove(); pickerMap = null; pickerMarker = null; }
-      let body = '';
-      if (state.view === 'dashboard') body = renderDashboard();
-      else if (state.view === 'list') body = renderList();
-      else if (state.view === 'detail') body = renderDetail();
-      else if (state.view === 'add') body = renderAdd();
-      else if (state.view === 'timeline') body = renderTimeline();
-      app.innerHTML = `
+/* ================= DATA ================= */
+async function loadProjects(){
+  const {data, error} = await supa.from('projects').select('*').is('deleted_at', null).order('created_at', {ascending:false});
+  if(error){ toast('Gagal memuat data: ' + error.message); return; }
+  state.projects = data || [];
+  render();
+}
+async function loadDetail(id){
+  const {data:proj, error:e1} = await supa.from('projects').select('*').eq('id', id).single();
+  const {data:docs, error:e2} = await supa.from('offer_documents').select('*').eq('project_id', id);
+  if(e1||e2){ toast('Gagal memuat detail'); return; }
+  state.currentDetail = proj;
+  state.currentDocs = docs || [];
+  render();
+}
+async function loadTimeline(){
+  const {data, error} = await supa.from('activity_log')
+    .select('*, projects(nama_proyek), profiles:actor_id(display_name)')
+    .order('created_at', {ascending:false}).limit(100);
+  if(error){ toast('Gagal memuat timeline'); return; }
+  state.timeline = data || [];
+  render();
+}
+async function logActivity(projectId, actionType, detail){
+  const uid = state.session?.user?.id;
+  if(!uid || !isAdmin()) return;
+  try{ await supa.from('activity_log').insert({project_id:projectId, actor_id:uid, action_type:actionType, detail}); }catch(e){}
+}
+async function createProject(payload){
+  if(!isAdmin()){ toast('Tidak punya akses'); return null; }
+  const user = state.session?.user;
+  const {data, error} = await supa.from('projects').insert({...payload, created_by:user?.id}).select().single();
+  if(error){ toast('Gagal simpan: ' + error.message); return null; }
+  const docRows = DOC_TYPES.map(d=>({project_id:data.id, jenis_dokumen:d.key, status:'belum'}));
+  await supa.from('offer_documents').insert(docRows);
+  await logActivity(data.id, 'create_project', `Proyek baru dibuat: ${payload.nama_proyek}`);
+  await loadProjects();
+  toast('Proyek dibuat');
+  return data.id;
+}
+async function updateField(id, field, value){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  const {error} = await supa.from('projects').update({[field]:value}).eq('id', id);
+  if(error){ toast('Gagal update'); return; }
+  toast('Tersimpan');
+  const idx = state.projects.findIndex(p=>p.id===id);
+  if(idx>-1) state.projects[idx][field] = value;
+  if(state.currentDetail && state.currentDetail.id===id) state.currentDetail[field] = value;
+}
+async function updateStage(id, newStage){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  const proj = state.projects.find(x=>x.id===id) || state.currentDetail;
+  const oldLabel = stageInfo(proj?.stage)?.label || '?';
+  const newLabel = stageInfo(newStage)?.label;
+  await updateField(id, 'stage', newStage);
+  await logActivity(id, 'change_stage', `Tahap diubah: ${oldLabel} \u2192 ${newLabel}`);
+  render();
+}
+async function toggleDocStatus(docId){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  const doc = state.currentDocs.find(d=>d.id===docId);
+  if(!doc) return;
+  const order = ['belum','upload','terverifikasi'];
+  const next = order[(order.indexOf(doc.status)+1) % order.length];
+  const {error} = await supa.from('offer_documents').update({status:next, updated_at:new Date().toISOString()}).eq('id', docId);
+  if(error){ toast('Gagal update dokumen'); return; }
+  doc.status = next;
+  const dt = DOC_TYPES.find(d=>d.key===doc.jenis_dokumen);
+  await logActivity(state.currentDetail?.id, 'update_doc_status', `Dokumen "${dt?.label||doc.jenis_dokumen}" diubah jadi ${next}`);
+  render();
+}
+async function uploadDocFile(event, docId){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  const file = event.target.files[0];
+  if(!file) return;
+  toast('Mengunggah file...');
+  const path = `docs/${state.currentDetail.id}/${docId}-${Date.now()}-${file.name}`;
+  const {error:upErr} = await supa.storage.from('project-files').upload(path, file, {upsert:true});
+  if(upErr){ toast('Gagal unggah: ' + upErr.message); return; }
+  const {data:urlData} = supa.storage.from('project-files').getPublicUrl(path);
+  const doc = state.currentDocs.find(d=>d.id===docId);
+  await supa.from('offer_documents').update({file_url:urlData.publicUrl, status:'upload'}).eq('id', docId);
+  doc.file_url = urlData.publicUrl; doc.status = 'upload';
+  const dt = DOC_TYPES.find(d=>d.key===doc.jenis_dokumen);
+  await logActivity(state.currentDetail.id, 'upload_file', `File diunggah untuk dokumen "${dt?.label||doc.jenis_dokumen}"`);
+  toast('File terunggah'); render();
+}
+async function uploadMouFile(event){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  const file = event.target.files[0];
+  if(!file) return;
+  toast('Mengunggah file...');
+  const path = `mou/${state.currentDetail.id}/${Date.now()}-${file.name}`;
+  const {error:upErr} = await supa.storage.from('project-files').upload(path, file, {upsert:true});
+  if(upErr){ toast('Gagal unggah: ' + upErr.message); return; }
+  const {data:urlData} = supa.storage.from('project-files').getPublicUrl(path);
+  await updateField(state.currentDetail.id, 'file_mou_kso_url', urlData.publicUrl);
+  state.currentDetail.file_mou_kso_url = urlData.publicUrl;
+  await logActivity(state.currentDetail.id, 'upload_file', 'File MoU KSO diunggah');
+  toast('File MoU terunggah'); render();
+}
+async function deleteProject(id){
+  if(!isAdmin()){ toast('Tidak punya akses'); return; }
+  if(!confirm('Hapus proyek ini? Data akan disembunyikan (soft delete).')) return;
+  const proj = state.projects.find(p=>p.id===id);
+  await supa.from('projects').update({deleted_at:new Date().toISOString()}).eq('id', id);
+  await logActivity(id, 'delete_project', `Proyek dihapus: ${proj?.nama_proyek||''}`);
+  toast('Proyek dihapus');
+  await loadProjects();
+  goTo('list');
+}
+
+/* ================= PWA ================= */
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  window.deferredInstallPrompt = e;
+  state.installAvailable = true;
+  render();
+});
+async function installApp(){
+  const promptEvent = window.deferredInstallPrompt;
+  if(!promptEvent) return;
+  promptEvent.prompt();
+  await promptEvent.userChoice;
+  window.deferredInstallPrompt = null;
+  state.installAvailable = false;
+  render();
+}
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
+/* ================= RENDER: SHELL ================= */
+function render(){
+  const app = document.getElementById('app');
+  if(!state.session){ app.innerHTML = renderLogin(); attachFormHandlers(); return; }
+  const willShowMap = state.view==='dashboard' && state.dashboardMode==='map';
+  const willShowPicker = state.view==='add' || (state.view==='detail' && isAdmin());
+  if(leafletMap && !willShowMap){ leafletMap.remove(); leafletMap = null; }
+  if(pickerMap && !willShowPicker){ pickerMap.remove(); pickerMap = null; pickerMarker = null; }
+  let body = '';
+  if(state.view==='dashboard') body = renderDashboard();
+  else if(state.view==='list') body = renderList();
+  else if(state.view==='detail') body = renderDetail();
+  else if(state.view==='add') body = renderAdd();
+  else if(state.view==='timeline') body = renderTimeline();
+  app.innerHTML = `
     <header class="topbar">
       <button class="hamburger" onclick="openSidebar()">&#9776;</button>
       <h1>Tracker Proyek KNMP</h1>
@@ -937,18 +526,18 @@
     <main>${body}</main>
     ${renderSidebar()}
   `;
-      attachFormHandlers();
-      if (state.view === 'dashboard' && state.dashboardMode === 'map') initMap();
-      if (state.view === 'add' || (state.view === 'detail' && isAdmin())) initPickerMap();
-    }
+  attachFormHandlers();
+  if(state.view==='dashboard' && state.dashboardMode==='map') initMap();
+  if(state.view==='add' || (state.view==='detail' && isAdmin())) initPickerMap();
+}
 
-    function renderSidebar() {
-      const admin = isAdmin();
-      const name = state.profile?.display_name || '...';
-      const roleLabel = admin ? 'Admin' : 'Tamu (lihat saja)';
-      return `
-  <div id="sidebarOverlay" class="sidebar-overlay ${state.sidebarOpen ? 'open' : ''}" onclick="closeSidebar()"></div>
-  <nav class="sidebar ${state.sidebarOpen ? 'open' : ''}">
+function renderSidebar(){
+  const admin = isAdmin();
+  const name = state.profile?.display_name || '...';
+  const roleLabel = admin ? 'Admin' : 'Tamu (lihat saja)';
+  return `
+  <div id="sidebarOverlay" class="sidebar-overlay ${state.sidebarOpen?'open':''}" onclick="closeSidebar()"></div>
+  <nav class="sidebar ${state.sidebarOpen?'open':''}">
     <div class="sidebar-header">
       <div class="sidebar-user">${escapeHtml(name)}</div>
       <div class="sidebar-role">${roleLabel}</div>
@@ -963,21 +552,21 @@
     <div class="sidebar-divider"></div>
     <button onclick="logout()">Keluar</button>
   </nav>`;
-    }
+}
 
-    function renderLogin() {
-      if (!state.loginSelected) {
-        return `
+function renderLogin(){
+  if(!state.loginSelected){
+    return `
     <main class="login-wrap">
       <h1>Tracker Proyek KNMP</h1>
       <p>Pilih nama Anda untuk masuk.</p>
       <div class="user-grid">
-        ${USERS.map(u => `<button class="user-pick" onclick="selectLoginUser('${u.username}')">${u.display}</button>`).join('')}
+        ${USERS.map(u=>`<button class="user-pick" onclick="selectLoginUser('${u.username}')">${u.display}</button>`).join('')}
       </div>
     </main>`;
-      }
-      const u = USERS.find(x => x.username === state.loginSelected);
-      return `
+  }
+  const u = USERS.find(x=>x.username===state.loginSelected);
+  return `
   <main class="login-wrap">
     <h1>Tracker Proyek KNMP</h1>
     <form id="loginForm" style="text-align:left;">
@@ -990,21 +579,21 @@
       <button class="btn" id="loginBtn" type="submit">Masuk</button>
     </form>
   </main>`;
-    }
+}
 
-    /* ================= RENDER: DASHBOARD ================= */
-    function renderDashboard() {
-      const projects = state.projects;
-      const active = projects.length;
-      const totalNilai = projects.reduce((s, p) => s + (Number(p.nilai_kontrak) || 0), 0);
-      const perStage = {}; STAGES.forEach(s => perStage[s.key] = 0);
-      projects.forEach(p => { if (perStage[p.stage] !== undefined) perStage[p.stage]++; });
-      const maxCount = Math.max(1, ...Object.values(perStage));
+/* ================= RENDER: DASHBOARD ================= */
+function renderDashboard(){
+  const projects = state.projects;
+  const active = projects.length;
+  const totalNilai = projects.reduce((s,p)=>s+(Number(p.nilai_kontrak)||0),0);
+  const perStage = {}; STAGES.forEach(s=>perStage[s.key]=0);
+  projects.forEach(p=>{ if(perStage[p.stage]!==undefined) perStage[p.stage]++; });
+  const maxCount = Math.max(1, ...Object.values(perStage));
 
-      const toggleBtn = `<button class="btn secondary" onclick="toggleDashboardMap()">${state.dashboardMode === 'map' ? '\u{1F4CA} Lihat Ringkasan' : '\u{1F5FA}\uFE0F Lihat di Peta'}</button>`;
+  const toggleBtn = `<button class="btn secondary" onclick="toggleDashboardMap()">${state.dashboardMode==='map' ? '\u{1F4CA} Lihat Ringkasan' : '\u{1F5FA}\uFE0F Lihat di Peta'}</button>`;
 
-      if (state.dashboardMode === 'map') {
-        return `
+  if(state.dashboardMode==='map'){
+    return `
       <div class="kpi-row">
         <div class="kpi-card"><div class="kpi-value">${active}</div><div class="kpi-label">Proyek Aktif</div></div>
         <div class="kpi-card"><div class="kpi-value">${formatRupiah(totalNilai)}</div><div class="kpi-label">Total Nilai Kontrak</div></div>
@@ -1013,9 +602,9 @@
       <div id="mapContainer" style="height:62vh;border-radius:14px;overflow:hidden;margin-top:12px;"></div>
       <div class="card-sub" style="margin-top:8px;">Tap titik untuk buka data proyeknya.</div>
     `;
-      }
+  }
 
-      return `
+  return `
     <div class="kpi-row">
       <div class="kpi-card"><div class="kpi-value">${active}</div><div class="kpi-label">Proyek Aktif</div></div>
       <div class="kpi-card"><div class="kpi-value">${formatRupiah(totalNilai)}</div><div class="kpi-label">Total Nilai Kontrak</div></div>
@@ -1024,93 +613,93 @@
 
     <div class="section-title">Sebaran per Tahap</div>
     <div class="card">
-      ${STAGES.map(s => `
+      ${STAGES.map(s=>`
         <div class="funnel-row">
           <div class="funnel-label">${s.label}</div>
-          <div class="funnel-bar-bg"><div class="funnel-bar" style="width:${(perStage[s.key] / maxCount * 100)}%; background:${s.color};"></div></div>
+          <div class="funnel-bar-bg"><div class="funnel-bar" style="width:${(perStage[s.key]/maxCount*100)}%; background:${s.color};"></div></div>
           <div class="funnel-count">${perStage[s.key]}</div>
         </div>`).join('')}
     </div>
 
     <div class="section-title">Proyek Terbaru</div>
-    ${projects.length === 0 ? `<div class="empty-state">Belum ada proyek. Tap "Tambah Proyek" di menu untuk mulai.</div>` :
-          projects.slice(0, 5).map(renderProjectCard).join('')}
-    ${projects.length > 5 ? `<button class="btn secondary" onclick="goTo('list')">Lihat Semua Proyek</button>` : ''}
+    ${projects.length===0 ? `<div class="empty-state">Belum ada proyek. Tap "Tambah Proyek" di menu untuk mulai.</div>` :
+      projects.slice(0,5).map(renderProjectCard).join('')}
+    ${projects.length>5 ? `<button class="btn secondary" onclick="goTo('list')">Lihat Semua Proyek</button>` : ''}
   `;
+}
+function toggleDashboardMap(){
+  state.dashboardMode = state.dashboardMode==='map' ? 'ringkasan' : 'map';
+  render();
+}
+function initMap(){
+  const container = document.getElementById('mapContainer');
+  if(!container || typeof L === 'undefined') return;
+  if(leafletMap){ leafletMap.remove(); leafletMap = null; }
+  leafletMap = L.map(container).setView([-2.5, 118], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
+  }).addTo(leafletMap);
+  state.projects.filter(p=>p.lat && p.lng).forEach(p=>{
+    const st = stageInfo(p.stage);
+    const marker = L.circleMarker([p.lat, p.lng], {radius:9, fillColor:st.color, color:'#fff', weight:2, fillOpacity:1}).addTo(leafletMap);
+    marker.bindTooltip(p.nama_proyek);
+    marker.on('click', ()=> goTo('detail', p.id));
+  });
+  setTimeout(()=>{ if(leafletMap) leafletMap.invalidateSize(); }, 80);
+}
+function initPickerMap(){
+  const container = document.getElementById('pickerMap');
+  if(!container || typeof L === 'undefined') return;
+  if(pickerMap){ pickerMap.remove(); pickerMap = null; pickerMarker = null; }
+  const existingLat = state.view==='detail' ? state.currentDetail?.lat : null;
+  const existingLng = state.view==='detail' ? state.currentDetail?.lng : null;
+  const startLat = existingLat || -2.5, startLng = existingLng || 118;
+  pickerMap = L.map(container).setView([startLat, startLng], existingLat ? 11 : 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap', maxZoom:18}).addTo(pickerMap);
+  if(existingLat && existingLng){
+    pickerMarker = L.marker([existingLat, existingLng]).addTo(pickerMap);
+  }
+  pickerMap.on('click', (e)=>{
+    const {lat, lng} = e.latlng;
+    if(pickerMarker) pickerMap.removeLayer(pickerMarker);
+    pickerMarker = L.marker([lat,lng]).addTo(pickerMap);
+    const latInput = document.getElementById('latField');
+    const lngInput = document.getElementById('lngField');
+    if(latInput) latInput.value = lat.toFixed(6);
+    if(lngInput) lngInput.value = lng.toFixed(6);
+    if(state.view==='detail' && state.currentDetail){
+      updateField(state.currentDetail.id, 'lat', Number(lat.toFixed(6)));
+      updateField(state.currentDetail.id, 'lng', Number(lng.toFixed(6)));
     }
-    function toggleDashboardMap() {
-      state.dashboardMode = state.dashboardMode === 'map' ? 'ringkasan' : 'map';
-      render();
-    }
-    function initMap() {
-      const container = document.getElementById('mapContainer');
-      if (!container || typeof L === 'undefined') return;
-      if (leafletMap) { leafletMap.remove(); leafletMap = null; }
-      leafletMap = L.map(container).setView([-2.5, 118], 5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
-      }).addTo(leafletMap);
-      state.projects.filter(p => p.lat && p.lng).forEach(p => {
-        const st = stageInfo(p.stage);
-        const marker = L.circleMarker([p.lat, p.lng], { radius: 9, fillColor: st.color, color: '#fff', weight: 2, fillOpacity: 1 }).addTo(leafletMap);
-        marker.bindTooltip(p.nama_proyek);
-        marker.on('click', () => goTo('detail', p.id));
-      });
-      setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 80);
-    }
-    function initPickerMap() {
-      const container = document.getElementById('pickerMap');
-      if (!container || typeof L === 'undefined') return;
-      if (pickerMap) { pickerMap.remove(); pickerMap = null; pickerMarker = null; }
-      const existingLat = state.view === 'detail' ? state.currentDetail?.lat : null;
-      const existingLng = state.view === 'detail' ? state.currentDetail?.lng : null;
-      const startLat = existingLat || -2.5, startLng = existingLng || 118;
-      pickerMap = L.map(container).setView([startLat, startLng], existingLat ? 11 : 5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 18 }).addTo(pickerMap);
-      if (existingLat && existingLng) {
-        pickerMarker = L.marker([existingLat, existingLng]).addTo(pickerMap);
-      }
-      pickerMap.on('click', (e) => {
-        const { lat, lng } = e.latlng;
-        if (pickerMarker) pickerMap.removeLayer(pickerMarker);
-        pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
-        const latInput = document.getElementById('latField');
-        const lngInput = document.getElementById('lngField');
-        if (latInput) latInput.value = lat.toFixed(6);
-        if (lngInput) lngInput.value = lng.toFixed(6);
-        if (state.view === 'detail' && state.currentDetail) {
-          updateField(state.currentDetail.id, 'lat', Number(lat.toFixed(6)));
-          updateField(state.currentDetail.id, 'lng', Number(lng.toFixed(6)));
-        }
-      });
-      setTimeout(() => { if (pickerMap) pickerMap.invalidateSize(); }, 80);
-    }
+  });
+  setTimeout(()=>{ if(pickerMap) pickerMap.invalidateSize(); }, 80);
+}
 
-    /* ================= RENDER: PROJECT ITEMS (mode-aware) ================= */
-    function renderProjectCard(p) {
-      const st = stageInfo(p.stage);
-      const wilayah = [p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-';
-      return `
+/* ================= RENDER: PROJECT ITEMS (mode-aware) ================= */
+function renderProjectCard(p){
+  const st = stageInfo(p.stage);
+  const wilayah = [p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-';
+  return `
     <div class="card" onclick="goTo('detail','${p.id}')">
       <div class="card-title">${escapeHtml(p.nama_proyek)}</div>
-      <div class="card-sub">${escapeHtml(wilayah)}${p.nama_pt_pelaksana ? ' &middot; ' + escapeHtml(p.nama_pt_pelaksana) : ''}</div>
+      <div class="card-sub">${escapeHtml(wilayah)}${p.nama_pt_pelaksana ? ' &middot; '+escapeHtml(p.nama_pt_pelaksana) : ''}</div>
       <span class="badge" style="background:${st.color}">${st.label}</span>
       <div class="card-value">${formatRupiah(p.nilai_kontrak)}</div>
     </div>`;
-    }
-    function renderProjectListItem(p) {
-      const st = stageInfo(p.stage);
-      return `
+}
+function renderProjectListItem(p){
+  const st = stageInfo(p.stage);
+  return `
     <div class="list-item" onclick="goTo('detail','${p.id}')">
       <span class="dot" style="background:${st.color}"></span>
       <span class="list-item-name">${escapeHtml(p.nama_proyek)}</span>
       <span class="list-item-chevron">&rsaquo;</span>
     </div>`;
-    }
-    function renderProjectDetailedRow(p) {
-      const st = stageInfo(p.stage);
-      const wilayah = [p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-';
-      return `
+}
+function renderProjectDetailedRow(p){
+  const st = stageInfo(p.stage);
+  const wilayah = [p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-';
+  return `
     <div class="detailed-row" onclick="goTo('detail','${p.id}')">
       <div class="detailed-row-top">
         <span class="card-title" style="font-size:14px;margin:0;">${escapeHtml(p.nama_proyek)}</span>
@@ -1118,60 +707,60 @@
       </div>
       <div class="detailed-row-grid">
         <div><span class="k">Wilayah</span><span class="v">${escapeHtml(wilayah)}</span></div>
-        <div><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana) || '-'}</span></div>
+        <div><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana)||'-'}</span></div>
         <div><span class="k">Nilai Kontrak</span><span class="v">${formatRupiah(p.nilai_kontrak)}</span></div>
         <div><span class="k">Tgl Kontrak</span><span class="v">${formatDate(p.tanggal_kontrak)}</span></div>
       </div>
     </div>`;
-    }
-    function renderProjectByMode(p) {
-      if (state.viewMode === 'list') return renderProjectListItem(p);
-      if (state.viewMode === 'detailed') return renderProjectDetailedRow(p);
-      return renderProjectCard(p);
-    }
+}
+function renderProjectByMode(p){
+  if(state.viewMode==='list') return renderProjectListItem(p);
+  if(state.viewMode==='detailed') return renderProjectDetailedRow(p);
+  return renderProjectCard(p);
+}
 
-    /* ================= RENDER: LIST ================= */
-    function renderList() {
-      let list = state.projects;
-      if (state.filterStage) list = list.filter(p => p.stage === state.filterStage);
-      if (state.search) list = list.filter(p =>
-        (p.nama_proyek || '').toLowerCase().includes(state.search.toLowerCase()) ||
-        (p.wilayah_kabupaten || '').toLowerCase().includes(state.search.toLowerCase())
-      );
-      return `
+/* ================= RENDER: LIST ================= */
+function renderList(){
+  let list = state.projects;
+  if(state.filterStage) list = list.filter(p=>p.stage===state.filterStage);
+  if(state.search) list = list.filter(p=>
+    (p.nama_proyek||'').toLowerCase().includes(state.search.toLowerCase()) ||
+    (p.wilayah_kabupaten||'').toLowerCase().includes(state.search.toLowerCase())
+  );
+  return `
     <div class="filters">
       <input type="text" id="searchInput" placeholder="Cari nama/wilayah..." value="${escapeHtml(state.search)}">
       <select id="stageFilter">
         <option value="">Semua Tahap</option>
-        ${STAGES.map(s => `<option value="${s.key}" ${state.filterStage === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+        ${STAGES.map(s=>`<option value="${s.key}" ${state.filterStage===s.key?'selected':''}>${s.label}</option>`).join('')}
       </select>
     </div>
     <div class="mode-switcher">
-      <button class="${state.viewMode === 'card' ? 'active' : ''}" onclick="setViewMode('card')">Card</button>
-      <button class="${state.viewMode === 'list' ? 'active' : ''}" onclick="setViewMode('list')">List</button>
-      <button class="${state.viewMode === 'detailed' ? 'active' : ''}" onclick="setViewMode('detailed')">Detail</button>
+      <button class="${state.viewMode==='card'?'active':''}" onclick="setViewMode('card')">Card</button>
+      <button class="${state.viewMode==='list'?'active':''}" onclick="setViewMode('list')">List</button>
+      <button class="${state.viewMode==='detailed'?'active':''}" onclick="setViewMode('detailed')">Detail</button>
     </div>
-    ${list.length === 0 ? `<div class="empty-state">Tidak ada proyek yang cocok.</div>` :
-          list.map(renderProjectByMode).join('')}
+    ${list.length===0 ? `<div class="empty-state">Tidak ada proyek yang cocok.</div>` :
+      list.map(renderProjectByMode).join('')}
   `;
-    }
+}
 
-    /* ================= RENDER: DETAIL ================= */
-    function renderDetail() {
-      const p = state.currentDetail;
-      if (!p) return `<div class="empty-state">Memuat...</div>`;
-      const admin = isAdmin();
-      const st = stageInfo(p.stage);
-      const docs = state.currentDocs;
-      const doneCount = docs.filter(d => d.status === 'terverifikasi').length;
+/* ================= RENDER: DETAIL ================= */
+function renderDetail(){
+  const p = state.currentDetail;
+  if(!p) return `<div class="empty-state">Memuat...</div>`;
+  const admin = isAdmin();
+  const st = stageInfo(p.stage);
+  const docs = state.currentDocs;
+  const doneCount = docs.filter(d=>d.status==='terverifikasi').length;
 
-      const stageSection = admin ? `
+  const stageSection = admin ? `
     <label>Ubah Tahap Pipeline</label>
     <select class="stepper-select" onchange="updateStage('${p.id}', this.value)">
-      ${STAGES.map(s => `<option value="${s.key}" ${p.stage === s.key ? 'selected' : ''}>${s.label}</option>`).join('')}
+      ${STAGES.map(s=>`<option value="${s.key}" ${p.stage===s.key?'selected':''}>${s.label}</option>`).join('')}
     </select>` : '';
 
-      const infoSection = admin ? `
+  const infoSection = admin ? `
     <div class="card">
       <label>Provinsi</label>
       <input type="text" value="${escapeHtml(p.wilayah_provinsi)}" onchange="updateField('${p.id}','wilayah_provinsi', this.value)">
@@ -1184,39 +773,39 @@
       <label>PT Pelaksana</label>
       <input type="text" value="${escapeHtml(p.nama_pt_pelaksana)}" onchange="updateField('${p.id}','nama_pt_pelaksana', this.value)">
       <label>Tanggal Masuk</label>
-      <input type="date" value="${p.tanggal_masuk || ''}" onchange="updateField('${p.id}','tanggal_masuk', this.value||null)">
+      <input type="date" value="${p.tanggal_masuk||''}" onchange="updateField('${p.id}','tanggal_masuk', this.value||null)">
       <label>Tanggal Kontrak</label>
-      <input type="date" value="${p.tanggal_kontrak || ''}" onchange="updateField('${p.id}','tanggal_kontrak', this.value||null)">
+      <input type="date" value="${p.tanggal_kontrak||''}" onchange="updateField('${p.id}','tanggal_kontrak', this.value||null)">
       <label>Nilai BOQ (Rp)</label>
-      <input type="number" value="${p.nilai_boq ?? ''}" onchange="updateField('${p.id}','nilai_boq', this.value===''?null:Number(this.value))">
+      <input type="number" value="${p.nilai_boq??''}" onchange="updateField('${p.id}','nilai_boq', this.value===''?null:Number(this.value))">
       <label>Nilai Kontrak (Rp)</label>
-      <input type="number" value="${p.nilai_kontrak ?? ''}" onchange="updateField('${p.id}','nilai_kontrak', this.value===''?null:Number(this.value))">
+      <input type="number" value="${p.nilai_kontrak??''}" onchange="updateField('${p.id}','nilai_kontrak', this.value===''?null:Number(this.value))">
       <label>Titik Lokasi (tap peta untuk pilih)</label>
       <div id="pickerMap" style="height:200px;border-radius:10px;overflow:hidden;margin-bottom:8px;"></div>
       <div style="display:flex; gap:8px;">
-        <input type="number" id="latField" step="any" value="${p.lat ?? ''}" placeholder="Latitude" onchange="updateField('${p.id}','lat', this.value===''?null:Number(this.value))">
-        <input type="number" id="lngField" step="any" value="${p.lng ?? ''}" placeholder="Longitude" onchange="updateField('${p.id}','lng', this.value===''?null:Number(this.value))">
+        <input type="number" id="latField" step="any" value="${p.lat??''}" placeholder="Latitude" onchange="updateField('${p.id}','lat', this.value===''?null:Number(this.value))">
+        <input type="number" id="lngField" step="any" value="${p.lng??''}" placeholder="Longitude" onchange="updateField('${p.id}','lng', this.value===''?null:Number(this.value))">
       </div>
     </div>` : `
     <div class="card">
-      <div class="info-row"><span class="k">Wilayah</span><span class="v">${escapeHtml([p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-')}</span></div>
-      <div class="info-row"><span class="k">Makelar</span><span class="v">${escapeHtml(p.makelar_nama) || '-'}</span></div>
-      <div class="info-row"><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana) || '-'}</span></div>
+      <div class="info-row"><span class="k">Wilayah</span><span class="v">${escapeHtml([p.wilayah_kecamatan,p.wilayah_kabupaten,p.wilayah_provinsi].filter(Boolean).join(', ')||'-')}</span></div>
+      <div class="info-row"><span class="k">Makelar</span><span class="v">${escapeHtml(p.makelar_nama)||'-'}</span></div>
+      <div class="info-row"><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana)||'-'}</span></div>
       <div class="info-row"><span class="k">Tanggal Masuk</span><span class="v">${formatDate(p.tanggal_masuk)}</span></div>
       <div class="info-row"><span class="k">Tanggal Kontrak</span><span class="v">${formatDate(p.tanggal_kontrak)}</span></div>
       <div class="info-row"><span class="k">Nilai BOQ</span><span class="v">${formatRupiah(p.nilai_boq)}</span></div>
       <div class="info-row"><span class="k">Nilai Kontrak</span><span class="v">${formatRupiah(p.nilai_kontrak)}</span></div>
     </div>`;
 
-      const mouFileActions = p.file_mou_kso_url ? (admin
-        ? `<div class="file-actions" style="margin-top:8px;"><a class="file-label" href="${p.file_mou_kso_url}" target="_blank">Lihat</a><button type="button" class="file-label" onclick="downloadFile('${p.file_mou_kso_url}')">Unduh</button></div>`
-        : `<div class="file-actions" style="margin-top:8px;"><a class="file-label" href="${p.file_mou_kso_url}" target="_blank">Lihat</a></div>`
-      ) : '';
+  const mouFileActions = p.file_mou_kso_url ? (admin
+    ? `<div class="file-actions" style="margin-top:8px;"><a class="file-label" href="${p.file_mou_kso_url}" target="_blank">Lihat</a><button type="button" class="file-label" onclick="downloadFile('${p.file_mou_kso_url}')">Unduh</button></div>`
+    : `<div class="file-actions" style="margin-top:8px;"><a class="file-label" href="${p.file_mou_kso_url}" target="_blank">Lihat</a></div>`
+  ) : '';
 
-      const mouSection = admin ? `
+  const mouSection = admin ? `
     <div class="card">
       <label>Tanggal MoU</label>
-      <input type="date" value="${p.tanggal_mou_kso || ''}" onchange="updateField('${p.id}','tanggal_mou_kso', this.value||null)">
+      <input type="date" value="${p.tanggal_mou_kso||''}" onchange="updateField('${p.id}','tanggal_mou_kso', this.value||null)">
       <label>File MoU</label>
       <input type="file" onchange="uploadMouFile(event)">
       ${mouFileActions}
@@ -1226,28 +815,28 @@
       ${mouFileActions || '<div class="card-sub">Belum ada file.</div>'}
     </div>`;
 
-      const docRows = DOC_TYPES.map(dt => {
-        const doc = docs.find(d => d.jenis_dokumen === dt.key);
-        if (!doc) return '';
-        const fileActions = doc.file_url ? (admin
-          ? `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a><button type="button" class="file-label" onclick="downloadFile('${doc.file_url}')">Unduh</button>`
-          : `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a>`
-        ) : '';
-        const uploadInput = admin ? `<label class="file-label">${doc.file_url ? 'Ganti' : 'Upload'}<input type="file" onchange="uploadDocFile(event,'${doc.id}')"></label>` : '';
-        const statusEl = admin
-          ? `<button class="doc-status status-${doc.status}" onclick="toggleDocStatus('${doc.id}')">${doc.status}</button>`
-          : `<span class="doc-status status-${doc.status}">${doc.status}</span>`;
-        return `<div class="doc-row">
+  const docRows = DOC_TYPES.map(dt=>{
+    const doc = docs.find(d=>d.jenis_dokumen===dt.key);
+    if(!doc) return '';
+    const fileActions = doc.file_url ? (admin
+      ? `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a><button type="button" class="file-label" onclick="downloadFile('${doc.file_url}')">Unduh</button>`
+      : `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a>`
+    ) : '';
+    const uploadInput = admin ? `<label class="file-label">${doc.file_url?'Ganti':'Upload'}<input type="file" onchange="uploadDocFile(event,'${doc.id}')"></label>` : '';
+    const statusEl = admin
+      ? `<button class="doc-status status-${doc.status}" onclick="toggleDocStatus('${doc.id}')">${doc.status}</button>`
+      : `<span class="doc-status status-${doc.status}">${doc.status}</span>`;
+    return `<div class="doc-row">
       <div class="doc-row-top"><div class="doc-name">${dt.label}</div>${statusEl}</div>
       <div class="doc-actions">${fileActions}${uploadInput}</div>
     </div>`;
-      }).join('');
+  }).join('');
 
-      const catatanSection = admin
-        ? `<div class="card"><textarea onchange="updateField('${p.id}','catatan_kendala', this.value)" placeholder="Mis. isu komunikasi dengan Pokja...">${escapeHtml(p.catatan_kendala)}</textarea></div>`
-        : `<div class="card"><div class="card-sub">${escapeHtml(p.catatan_kendala) || 'Tidak ada catatan.'}</div></div>`;
+  const catatanSection = admin
+    ? `<div class="card"><textarea onchange="updateField('${p.id}','catatan_kendala', this.value)" placeholder="Mis. isu komunikasi dengan Pokja...">${escapeHtml(p.catatan_kendala)}</textarea></div>`
+    : `<div class="card"><div class="card-sub">${escapeHtml(p.catatan_kendala) || 'Tidak ada catatan.'}</div></div>`;
 
-      return `
+  return `
     <a class="back-link" onclick="goTo('list')">&larr; Kembali ke Daftar</a>
     <div class="card">
       <div class="card-title" style="font-size:17px;">${escapeHtml(p.nama_proyek)}</div>
@@ -1264,14 +853,14 @@
     ${catatanSection}
     ${admin ? `<button class="btn danger" onclick="deleteProject('${p.id}')">Hapus Proyek</button>` : ''}
   `;
-    }
+}
 
-    /* ================= RENDER: ADD ================= */
-    function renderAdd() {
-      if (!isAdmin()) {
-        return `<div class="empty-state">Anda tidak punya akses untuk menambah proyek.</div>`;
-      }
-      return `
+/* ================= RENDER: ADD ================= */
+function renderAdd(){
+  if(!isAdmin()){
+    return `<div class="empty-state">Anda tidak punya akses untuk menambah proyek.</div>`;
+  }
+  return `
     <a class="back-link" onclick="goTo('dashboard')">&larr; Batal</a>
     <div class="section-title">Tambah Proyek Baru</div>
     <form id="addForm">
@@ -1300,56 +889,59 @@
       <button class="btn" type="submit">Simpan Proyek</button>
     </form>
   `;
-    }
+}
 
-    /* ================= RENDER: TIMELINE ================= */
-    function renderTimeline() {
-      const rows = state.timeline || [];
-      return `
+/* ================= RENDER: TIMELINE ================= */
+function renderTimeline(){
+  const rows = state.timeline || [];
+  return `
     <a class="back-link" onclick="goTo('dashboard')">&larr; Kembali</a>
     <div class="section-title">Timeline / Log Aktivitas</div>
-    ${rows.length === 0 ? `<div class="empty-state">Belum ada aktivitas.</div>` :
-          rows.map(r => `
+    ${rows.length===0 ? `<div class="empty-state">Belum ada aktivitas.</div>` :
+      rows.map(r=>`
         <div class="card">
           <div class="card-sub">${formatDateTime(r.created_at)}</div>
           <div class="card-title" style="font-size:14px;">${escapeHtml(r.detail)}</div>
           <div class="card-sub">${escapeHtml(r.projects?.nama_proyek || '-')} &middot; oleh ${escapeHtml(r.profiles?.display_name || '-')}</div>
         </div>`).join('')}
   `;
-    }
+}
 
-    /* ================= FORM WIRING ================= */
-    function attachFormHandlers() {
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) loginForm.addEventListener('submit', login);
+/* ================= FORM WIRING ================= */
+function attachFormHandlers(){
+  const loginForm = document.getElementById('loginForm');
+  if(loginForm) loginForm.addEventListener('submit', login);
 
-      const addForm = document.getElementById('addForm');
-      if (addForm) addForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const fd = new FormData(addForm);
-        const payload = Object.fromEntries(fd.entries());
-        ['nilai_boq', 'nilai_kontrak', 'lat', 'lng'].forEach(f => {
-          if (payload[f] === '' || payload[f] === undefined) delete payload[f];
-          else payload[f] = Number(payload[f]);
-        });
-        const newId = await createProject(payload);
-        if (newId) goTo('detail', newId);
-      });
+  const addForm = document.getElementById('addForm');
+  if(addForm) addForm.addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(addForm);
+    const payload = Object.fromEntries(fd.entries());
+    ['nilai_boq','nilai_kontrak','lat','lng'].forEach(f=>{
+      if(payload[f]===''||payload[f]===undefined) delete payload[f];
+      else payload[f] = Number(payload[f]);
+    });
+    const newId = await createProject(payload);
+    if(newId) goTo('detail', newId);
+  });
 
-      const searchInput = document.getElementById('searchInput');
-      if (searchInput) searchInput.addEventListener('input', e => {
-        state.search = e.target.value; render();
-        const el = document.getElementById('searchInput');
-        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-      });
+  const searchInput = document.getElementById('searchInput');
+  if(searchInput) searchInput.addEventListener('input', e=>{
+    state.search = e.target.value; render();
+    const el = document.getElementById('searchInput');
+    if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
 
-      const stageFilter = document.getElementById('stageFilter');
-      if (stageFilter) stageFilter.addEventListener('change', e => { state.filterStage = e.target.value; render(); });
-    }
+  const stageFilter = document.getElementById('stageFilter');
+  if(stageFilter) stageFilter.addEventListener('change', e=>{ state.filterStage = e.target.value; render(); });
+}
 
-    /* ================= INIT ================= */
-    initAuth();
-  </script>
+/* ================= INIT ================= */
+if(CONFIG_ERROR){
+  showFatalError(CONFIG_ERROR);
+} else {
+  initAuth();
+}
+</script>
 </body>
-
 </html>
