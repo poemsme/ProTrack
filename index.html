@@ -69,6 +69,12 @@
     padding:3px 9px; border-radius:99px; margin-top:6px;
   }
   .card-value{ font-size:13px; font-weight:700; color:var(--accent-dark); margin-top:6px; }
+  .activity-preview{ font-size:11.5px; color:var(--muted); margin-top:8px; }
+  .note-preview{
+    font-size:12px; color:var(--muted); margin-top:6px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .note-preview.expanded{ white-space:normal; }
   .filters{ display:flex; gap:8px; margin-bottom:10px; }
   select, input[type=text], input[type=number], input[type=date],
   input[type=password], textarea{
@@ -117,6 +123,7 @@
 
   .list-item{ display:flex; align-items:center; gap:10px; padding:13px 4px; border-bottom:1px solid var(--border); }
   .list-item .dot{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .list-item.active-map-item{ background:#EAF2F0; border-radius:10px; }
   .list-item-name{ flex:1; font-size:14px; font-weight:600; }
   .list-item-chevron{ color:var(--muted); }
 
@@ -255,6 +262,11 @@ let state = {
   projects: [],
   currentDetail: null,
   currentDocs: [],
+  currentNotes: [],
+  editingNoteId: null,
+  latestActivityByProject: {},
+  latestNoteByProject: {},
+  mapSelectedProject: null,
   timeline: [],
   filterStage: '',
   search: '',
@@ -300,6 +312,17 @@ function setViewMode(mode){
 function filenameFromUrl(url){
   try{ return decodeURIComponent(url.split('/').pop()); }catch(e){ return 'file'; }
 }
+function unformatNumberInput(value){
+  const digits = String(value).replace(/[^\d]/g,'');
+  return digits === '' ? null : Number(digits);
+}
+function handleCurrencyInput(inputEl){
+  const raw = unformatNumberInput(inputEl.value);
+  inputEl.value = raw===null ? '' : raw.toLocaleString('id-ID');
+}
+function ptLabel(p){
+  return p.nama_pt_pelaksana ? escapeHtml(p.nama_pt_pelaksana) : 'Belum ada PT yang dipilih';
+}
 async function downloadFile(url){
   try{
     toast('Menyiapkan unduhan...');
@@ -316,6 +339,7 @@ function goTo(view, id=null){
   state.view = view;
   state.currentId = id;
   state.sidebarOpen = false;
+  state.mapSelectedProject = null;
   if(view==='detail') state.currentDetail = null;
   if(view==='dashboard') state.dashboardMode = 'ringkasan';
   render();
@@ -377,14 +401,31 @@ async function loadProjects(){
   const {data, error} = await supa.from('projects').select('*').is('deleted_at', null).order('created_at', {ascending:false});
   if(error){ toast('Gagal memuat data: ' + error.message); return; }
   state.projects = data || [];
+  await loadDashboardExtras();
   render();
+}
+async function loadDashboardExtras(){
+  try{
+    const {data:acts} = await supa.from('activity_log').select('*').order('created_at',{ascending:false}).limit(300);
+    const actMap = {};
+    (acts||[]).forEach(a=>{ if(a.project_id && !actMap[a.project_id]) actMap[a.project_id] = a; });
+    state.latestActivityByProject = actMap;
+
+    const {data:notes} = await supa.from('project_notes').select('*').order('updated_at',{ascending:false}).limit(300);
+    const noteMap = {};
+    (notes||[]).forEach(n=>{ if(n.project_id && !noteMap[n.project_id]) noteMap[n.project_id] = n; });
+    state.latestNoteByProject = noteMap;
+  }catch(e){ /* non-critical, dashboard just shows less context */ }
 }
 async function loadDetail(id){
   const {data:proj, error:e1} = await supa.from('projects').select('*').eq('id', id).single();
   const {data:docs, error:e2} = await supa.from('offer_documents').select('*').eq('project_id', id);
+  const {data:notes, error:e3} = await supa.from('project_notes').select('*, profiles:created_by(display_name)').eq('project_id', id).order('created_at',{ascending:false});
   if(e1||e2){ toast('Gagal memuat detail'); return; }
   state.currentDetail = proj;
   state.currentDocs = docs || [];
+  state.currentNotes = e3 ? [] : (notes || []);
+  state.editingNoteId = null;
   render();
 }
 async function loadTimeline(){
@@ -482,6 +523,67 @@ async function deleteProject(id){
   toast('Proyek dihapus');
   await loadProjects();
   goTo('list');
+}
+
+/* ================= NOTES (Catatan) ================= */
+function truncateText(t, n){
+  if(!t) return '';
+  return t.length > n ? t.slice(0,n) + '...' : t;
+}
+async function submitNewNote(projectId){
+  const el = document.getElementById('newNoteText');
+  if(!el) return;
+  const text = el.value.trim();
+  if(!text){ toast('Catatan masih kosong'); return; }
+  await addNote(projectId, text);
+  el.value = '';
+}
+async function addNote(projectId, text){
+  if(!isAdmin()) return;
+  const uid = state.session?.user?.id;
+  const {data, error} = await supa.from('project_notes')
+    .insert({project_id:projectId, note:text, created_by:uid})
+    .select('*, profiles:created_by(display_name)').single();
+  if(error){ toast('Gagal simpan catatan: ' + error.message); return; }
+  state.currentNotes.unshift(data);
+  state.latestNoteByProject[projectId] = data;
+  await logActivity(projectId, 'add_note', `Catatan ditambahkan: ${truncateText(text,80)}`);
+  toast('Catatan disimpan');
+  render();
+}
+function startEditNote(noteId){
+  state.editingNoteId = noteId;
+  render();
+}
+function cancelEditNote(){
+  state.editingNoteId = null;
+  render();
+}
+async function submitEditNote(noteId){
+  const el = document.getElementById('editNoteText-' + noteId);
+  if(!el) return;
+  const text = el.value.trim();
+  if(!text){ toast('Catatan tidak boleh kosong'); return; }
+  await updateNote(noteId, text);
+}
+async function updateNote(noteId, newText){
+  if(!isAdmin()) return;
+  const {error} = await supa.from('project_notes').update({note:newText, updated_at:new Date().toISOString()}).eq('id', noteId);
+  if(error){ toast('Gagal update catatan: ' + error.message); return; }
+  const n = state.currentNotes.find(x=>x.id===noteId);
+  if(n){ n.note = newText; n.updated_at = new Date().toISOString(); }
+  if(state.currentDetail) await logActivity(state.currentDetail.id, 'update_note', `Catatan diperbarui: ${truncateText(newText,80)}`);
+  state.editingNoteId = null;
+  toast('Catatan diperbarui');
+  render();
+}
+async function updateDocDescription(docId, value){
+  if(!isAdmin()) return;
+  const {error} = await supa.from('offer_documents').update({deskripsi:value}).eq('id', docId);
+  if(error){ toast('Gagal simpan deskripsi'); return; }
+  const doc = state.currentDocs.find(d=>d.id===docId);
+  if(doc) doc.deskripsi = value;
+  toast('Tersimpan');
 }
 
 /* ================= PWA ================= */
@@ -599,8 +701,10 @@ function renderDashboard(){
         <div class="kpi-card"><div class="kpi-value">${formatRupiah(totalNilai)}</div><div class="kpi-label">Total Nilai Kontrak</div></div>
       </div>
       ${toggleBtn}
-      <div id="mapContainer" style="height:62vh;border-radius:14px;overflow:hidden;margin-top:12px;"></div>
-      <div class="card-sub" style="margin-top:8px;">Tap titik untuk buka data proyeknya.</div>
+      <div id="mapContainer" style="height:48vh;border-radius:14px;overflow:hidden;margin-top:12px;"></div>
+      <div id="mapPreview"></div>
+      <div class="section-title">Daftar Titik Proyek</div>
+      <div class="card" id="mapProjectList" style="padding:4px 14px;"></div>
     `;
   }
 
@@ -629,7 +733,34 @@ function renderDashboard(){
 }
 function toggleDashboardMap(){
   state.dashboardMode = state.dashboardMode==='map' ? 'ringkasan' : 'map';
+  state.mapSelectedProject = null;
   render();
+}
+function selectMapProject(id){
+  if(state.mapSelectedProject === id){
+    goTo('detail', id);
+    return;
+  }
+  state.mapSelectedProject = id;
+  renderMapPreview();
+}
+function renderMapPreview(){
+  const previewEl = document.getElementById('mapPreview');
+  const listEl = document.getElementById('mapProjectList');
+  if(!previewEl || !listEl) return;
+  const p = state.projects.find(x=>x.id===state.mapSelectedProject);
+  previewEl.innerHTML = !p ? '' : `
+    <div class="card" style="margin-top:10px;border-color:#E0392C;">
+      <div class="card-title">${escapeHtml(p.nama_proyek)}</div>
+      <div class="card-value">${formatRupiah(p.nilai_kontrak)}</div>
+      <div class="card-sub" style="margin-top:6px;">Tap sekali lagi (titik atau nama) untuk buka detail</div>
+    </div>`;
+  listEl.innerHTML = state.projects.filter(x=>x.lat && x.lng).map(x=>`
+    <div class="list-item ${x.id===state.mapSelectedProject?'active-map-item':''}" onclick="selectMapProject('${x.id}')">
+      <span class="dot" style="background:#E0392C"></span>
+      <span class="list-item-name">${escapeHtml(x.nama_proyek)}</span>
+      <span class="list-item-chevron">&rsaquo;</span>
+    </div>`).join('') || '<div class="empty-state">Belum ada proyek dengan titik lokasi.</div>';
 }
 function initMap(){
   const container = document.getElementById('mapContainer');
@@ -640,11 +771,11 @@ function initMap(){
     attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
   }).addTo(leafletMap);
   state.projects.filter(p=>p.lat && p.lng).forEach(p=>{
-    const st = stageInfo(p.stage);
-    const marker = L.circleMarker([p.lat, p.lng], {radius:9, fillColor:st.color, color:'#fff', weight:2, fillOpacity:1}).addTo(leafletMap);
+    const marker = L.circleMarker([p.lat, p.lng], {radius:9, fillColor:'#E0392C', color:'#fff', weight:2, fillOpacity:1}).addTo(leafletMap);
     marker.bindTooltip(p.nama_proyek);
-    marker.on('click', ()=> goTo('detail', p.id));
+    marker.on('click', ()=> selectMapProject(p.id));
   });
+  renderMapPreview();
   setTimeout(()=>{ if(leafletMap) leafletMap.invalidateSize(); }, 80);
 }
 function initPickerMap(){
@@ -679,12 +810,16 @@ function initPickerMap(){
 function renderProjectCard(p){
   const st = stageInfo(p.stage);
   const wilayah = [p.wilayah_kecamatan, p.wilayah_kabupaten, p.wilayah_provinsi].filter(Boolean).join(', ') || '-';
+  const lastAct = state.latestActivityByProject?.[p.id];
+  const lastNote = state.latestNoteByProject?.[p.id];
   return `
     <div class="card" onclick="goTo('detail','${p.id}')">
       <div class="card-title">${escapeHtml(p.nama_proyek)}</div>
-      <div class="card-sub">${escapeHtml(wilayah)}${p.nama_pt_pelaksana ? ' &middot; '+escapeHtml(p.nama_pt_pelaksana) : ''}</div>
+      <div class="card-sub">${escapeHtml(wilayah)} &middot; ${ptLabel(p)}</div>
       <span class="badge" style="background:${st.color}">${st.label}</span>
       <div class="card-value">${formatRupiah(p.nilai_kontrak)}</div>
+      ${lastAct ? `<div class="activity-preview">&#128337; ${escapeHtml(lastAct.detail)}</div>` : ''}
+      ${lastNote ? `<div class="note-preview" onclick="event.stopPropagation(); this.classList.toggle('expanded')">&#128221; ${escapeHtml(lastNote.note)}</div>` : ''}
     </div>`;
 }
 function renderProjectListItem(p){
@@ -707,7 +842,7 @@ function renderProjectDetailedRow(p){
       </div>
       <div class="detailed-row-grid">
         <div><span class="k">Wilayah</span><span class="v">${escapeHtml(wilayah)}</span></div>
-        <div><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana)||'-'}</span></div>
+        <div><span class="k">PT Pelaksana</span><span class="v">${ptLabel(p)}</span></div>
         <div><span class="k">Nilai Kontrak</span><span class="v">${formatRupiah(p.nilai_kontrak)}</span></div>
         <div><span class="k">Tgl Kontrak</span><span class="v">${formatDate(p.tanggal_kontrak)}</span></div>
       </div>
@@ -755,10 +890,36 @@ function renderDetail(){
   const doneCount = docs.filter(d=>d.status==='terverifikasi').length;
 
   const stageSection = admin ? `
-    <label>Ubah Tahap Pipeline</label>
     <select class="stepper-select" onchange="updateStage('${p.id}', this.value)">
       ${STAGES.map(s=>`<option value="${s.key}" ${p.stage===s.key?'selected':''}>${s.label}</option>`).join('')}
-    </select>` : '';
+    </select>` : `
+    <div class="card"><div class="info-row"><span class="k">Tahap Saat Ini</span><span class="v">${st.label}</span></div></div>`;
+
+  const notesAddForm = admin ? `
+    <div class="card">
+      <label>Tambah Catatan Baru</label>
+      <textarea id="newNoteText" placeholder="Tulis catatan/update terbaru soal proyek ini..."></textarea>
+      <button type="button" class="btn secondary" onclick="submitNewNote('${p.id}')">Simpan Catatan</button>
+    </div>` : '';
+  const notesList = state.currentNotes.length===0 ? `<div class="empty-state">Belum ada catatan.</div>` :
+    state.currentNotes.map(n=>{
+      const authorName = n.profiles?.display_name || '-';
+      const edited = n.updated_at && n.updated_at !== n.created_at ? ' (diedit)' : '';
+      if(state.editingNoteId === n.id){
+        return `<div class="card">
+          <textarea id="editNoteText-${n.id}">${escapeHtml(n.note)}</textarea>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button type="button" class="btn secondary" style="margin-top:0;flex:1;" onclick="cancelEditNote()">Batal</button>
+            <button type="button" class="btn" style="margin-top:0;flex:1;" onclick="submitEditNote('${n.id}')">Simpan</button>
+          </div>
+        </div>`;
+      }
+      return `<div class="card">
+        <div class="card-sub">${formatDateTime(n.created_at)}${edited} &middot; ${escapeHtml(authorName)}</div>
+        <div style="font-size:14px; margin-top:4px; white-space:pre-wrap;">${escapeHtml(n.note)}</div>
+        ${admin ? `<button type="button" class="file-label" style="margin-top:8px;" onclick="startEditNote('${n.id}')">Edit</button>` : ''}
+      </div>`;
+    }).join('');
 
   const infoSection = admin ? `
     <div class="card">
@@ -771,15 +932,15 @@ function renderDetail(){
       <label>Makelar</label>
       <input type="text" value="${escapeHtml(p.makelar_nama)}" onchange="updateField('${p.id}','makelar_nama', this.value)">
       <label>PT Pelaksana</label>
-      <input type="text" value="${escapeHtml(p.nama_pt_pelaksana)}" onchange="updateField('${p.id}','nama_pt_pelaksana', this.value)">
+      <input type="text" value="${escapeHtml(p.nama_pt_pelaksana)}" placeholder="Belum ada PT yang dipilih" onchange="updateField('${p.id}','nama_pt_pelaksana', this.value)">
       <label>Tanggal Masuk</label>
       <input type="date" value="${p.tanggal_masuk||''}" onchange="updateField('${p.id}','tanggal_masuk', this.value||null)">
       <label>Tanggal Kontrak</label>
       <input type="date" value="${p.tanggal_kontrak||''}" onchange="updateField('${p.id}','tanggal_kontrak', this.value||null)">
       <label>Nilai BOQ (Rp)</label>
-      <input type="number" value="${p.nilai_boq??''}" onchange="updateField('${p.id}','nilai_boq', this.value===''?null:Number(this.value))">
+      <input type="text" inputmode="numeric" value="${p.nilai_boq!=null?Number(p.nilai_boq).toLocaleString('id-ID'):''}" placeholder="0" oninput="handleCurrencyInput(this)" onchange="updateField('${p.id}','nilai_boq', unformatNumberInput(this.value))">
       <label>Nilai Kontrak (Rp)</label>
-      <input type="number" value="${p.nilai_kontrak??''}" onchange="updateField('${p.id}','nilai_kontrak', this.value===''?null:Number(this.value))">
+      <input type="text" inputmode="numeric" value="${p.nilai_kontrak!=null?Number(p.nilai_kontrak).toLocaleString('id-ID'):''}" placeholder="0" oninput="handleCurrencyInput(this)" onchange="updateField('${p.id}','nilai_kontrak', unformatNumberInput(this.value))">
       <label>Titik Lokasi (tap peta untuk pilih)</label>
       <div id="pickerMap" style="height:200px;border-radius:10px;overflow:hidden;margin-bottom:8px;"></div>
       <div style="display:flex; gap:8px;">
@@ -790,7 +951,7 @@ function renderDetail(){
     <div class="card">
       <div class="info-row"><span class="k">Wilayah</span><span class="v">${escapeHtml([p.wilayah_kecamatan,p.wilayah_kabupaten,p.wilayah_provinsi].filter(Boolean).join(', ')||'-')}</span></div>
       <div class="info-row"><span class="k">Makelar</span><span class="v">${escapeHtml(p.makelar_nama)||'-'}</span></div>
-      <div class="info-row"><span class="k">PT Pelaksana</span><span class="v">${escapeHtml(p.nama_pt_pelaksana)||'-'}</span></div>
+      <div class="info-row"><span class="k">PT Pelaksana</span><span class="v">${ptLabel(p)}</span></div>
       <div class="info-row"><span class="k">Tanggal Masuk</span><span class="v">${formatDate(p.tanggal_masuk)}</span></div>
       <div class="info-row"><span class="k">Tanggal Kontrak</span><span class="v">${formatDate(p.tanggal_kontrak)}</span></div>
       <div class="info-row"><span class="k">Nilai BOQ</span><span class="v">${formatRupiah(p.nilai_boq)}</span></div>
@@ -806,8 +967,8 @@ function renderDetail(){
     <div class="card">
       <label>Tanggal MoU</label>
       <input type="date" value="${p.tanggal_mou_kso||''}" onchange="updateField('${p.id}','tanggal_mou_kso', this.value||null)">
-      <label>File MoU</label>
-      <input type="file" onchange="uploadMouFile(event)">
+      <label>File MoU (bebas jenis file apa pun)</label>
+      <input type="file" accept="*/*" onchange="uploadMouFile(event)">
       ${mouFileActions}
     </div>` : `
     <div class="card">
@@ -822,19 +983,19 @@ function renderDetail(){
       ? `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a><button type="button" class="file-label" onclick="downloadFile('${doc.file_url}')">Unduh</button>`
       : `<a class="file-label" href="${doc.file_url}" target="_blank">Lihat</a>`
     ) : '';
-    const uploadInput = admin ? `<label class="file-label">${doc.file_url?'Ganti':'Upload'}<input type="file" onchange="uploadDocFile(event,'${doc.id}')"></label>` : '';
+    const uploadInput = admin ? `<label class="file-label">${doc.file_url?'Ganti':'Upload'}<input type="file" accept="*/*" onchange="uploadDocFile(event,'${doc.id}')"></label>` : '';
     const statusEl = admin
       ? `<button class="doc-status status-${doc.status}" onclick="toggleDocStatus('${doc.id}')">${doc.status}</button>`
       : `<span class="doc-status status-${doc.status}">${doc.status}</span>`;
+    const descField = admin
+      ? `<input type="text" placeholder="Deskripsi singkat (opsional)" value="${escapeHtml(doc.deskripsi)}" onchange="updateDocDescription('${doc.id}', this.value)">`
+      : (doc.deskripsi ? `<div class="card-sub">${escapeHtml(doc.deskripsi)}</div>` : '');
     return `<div class="doc-row">
       <div class="doc-row-top"><div class="doc-name">${dt.label}</div>${statusEl}</div>
       <div class="doc-actions">${fileActions}${uploadInput}</div>
+      ${descField}
     </div>`;
   }).join('');
-
-  const catatanSection = admin
-    ? `<div class="card"><textarea onchange="updateField('${p.id}','catatan_kendala', this.value)" placeholder="Mis. isu komunikasi dengan Pokja...">${escapeHtml(p.catatan_kendala)}</textarea></div>`
-    : `<div class="card"><div class="card-sub">${escapeHtml(p.catatan_kendala) || 'Tidak ada catatan.'}</div></div>`;
 
   return `
     <a class="back-link" onclick="goTo('list')">&larr; Kembali ke Daftar</a>
@@ -842,6 +1003,10 @@ function renderDetail(){
       <div class="card-title" style="font-size:17px;">${escapeHtml(p.nama_proyek)}</div>
       <span class="badge" style="background:${st.color}">${st.label}</span>
     </div>
+    <div class="section-title">Catatan</div>
+    ${notesAddForm}
+    ${notesList}
+    <div class="section-title">Pipeline</div>
     ${stageSection}
     <div class="section-title">Informasi Proyek</div>
     ${infoSection}
@@ -849,8 +1014,6 @@ function renderDetail(){
     ${mouSection}
     <div class="section-title">Checklist Dokumen (${doneCount}/${DOC_TYPES.length} terverifikasi)</div>
     <div class="card">${docRows}</div>
-    <div class="section-title">Catatan Kendala</div>
-    ${catatanSection}
     ${admin ? `<button class="btn danger" onclick="deleteProject('${p.id}')">Hapus Proyek</button>` : ''}
   `;
 }
@@ -877,9 +1040,9 @@ function renderAdd(){
       <label>PT Pelaksana</label>
       <input type="text" name="nama_pt_pelaksana">
       <label>Nilai BOQ (Rp)</label>
-      <input type="number" name="nilai_boq">
+      <input type="text" inputmode="numeric" name="nilai_boq" placeholder="0" oninput="handleCurrencyInput(this)">
       <label>Nilai Kontrak (Rp)</label>
-      <input type="number" name="nilai_kontrak">
+      <input type="text" inputmode="numeric" name="nilai_kontrak" placeholder="0" oninput="handleCurrencyInput(this)">
       <label>Titik Lokasi (opsional, tap peta untuk pilih)</label>
       <div id="pickerMap" style="height:200px;border-radius:10px;overflow:hidden;margin-bottom:8px;"></div>
       <div style="display:flex; gap:8px;">
@@ -917,9 +1080,13 @@ function attachFormHandlers(){
     e.preventDefault();
     const fd = new FormData(addForm);
     const payload = Object.fromEntries(fd.entries());
-    ['nilai_boq','nilai_kontrak','lat','lng'].forEach(f=>{
+    ['lat','lng'].forEach(f=>{
       if(payload[f]===''||payload[f]===undefined) delete payload[f];
       else payload[f] = Number(payload[f]);
+    });
+    ['nilai_boq','nilai_kontrak'].forEach(f=>{
+      const v = unformatNumberInput(payload[f]);
+      if(v===null) delete payload[f]; else payload[f] = v;
     });
     const newId = await createProject(payload);
     if(newId) goTo('detail', newId);
